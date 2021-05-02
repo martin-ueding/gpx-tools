@@ -112,7 +112,7 @@ def download_tile(tile_url, tile_file):
 
     return True
 
-
+@st.cache
 def heatmap_from_gpx(lat_lon_data, num_files=1, args_orange=False, args_sigma=1):
     # find tiles coordinates
     lat_min, lon_min = np.min(lat_lon_data, axis=0)
@@ -285,8 +285,10 @@ def heatmap_from_gpx(lat_lon_data, num_files=1, args_orange=False, args_sigma=1)
 
 ##############################################
 
-
-def gpx_to_df(path: str, gpx: gpxpy.gpx.GPX) -> pd.DataFrame:
+@st.cache
+def gpx_to_df(path: str) -> pd.DataFrame:
+    with open(path) as f:
+        gpx = gpxpy.parse(f)
     points = gpx.tracks[0].segments[0].points
 
     time = [point.time for point in points]
@@ -323,24 +325,35 @@ def gpx_to_df(path: str, gpx: gpxpy.gpx.GPX) -> pd.DataFrame:
     return df
 
 
-def gpx_to_summary(gpx: gpxpy.gpx.GPX) -> dict:
-    length = gpx.tracks[0].segments[0].length_2d()
-
-    start = gpx.tracks[0].segments[0].points[0].time
-    end = gpx.tracks[0].segments[0].points[-1].time
-    date_format = "%a %Y-%m-%d %H:%M"
-    duration = int((end - start).total_seconds())
-    duration_str = f"{duration % 3600 // 60:02d}:{duration % 60:02d}"
-    if duration >= 3600:
-        duration_str = f"{duration // 3600:d}:" + duration_str
+def summarize_single_df(df: pd.DataFrame) -> dict:
+    length = df["distance"].iloc[-1] / 1000
+    start = df["time"].iloc[0]
+    end = df["time"].iloc[-1]
+    duration = (end - start)
     avg_speed = 3.6 * length / duration
 
     result = {
-        "Length / km": f"{length / 1000:.2f} km",
-        "Start": start.strftime(date_format),
-        "End": end.strftime(date_format),
+        "length": length,
+        "start": start,
+        "end": end,
+        "duration": duration,
+        "avg_speed speed": avg_speed,
+    }
+    return result
+
+
+def format_single_df(data: dict) -> dict:
+    date_format = "%a %Y-%m-%d %H:%M"
+    duration = int(data['duration'].total_seconds())
+    duration_str = f"{duration % 3600 // 60:02d}:{duration % 60:02d}"
+    if duration >= 3600:
+        duration_str = f"{duration // 3600:d}:" + duration_str
+    result = {
+        "Length / km": f"{data['length']:.2f} km",
+        "Start": data['start'].strftime(date_format),
+        "End": data['end'].strftime(date_format),
         "Duration": duration_str,
-        "Average speed": f"{avg_speed:.1f} km/h",
+        "Average speed": f"{data['avg_speed']:.1f} km/h",
     }
     return result
 
@@ -359,7 +372,7 @@ all_dfs = []
 for filename in paths[chosen_directory]:
     with open(os.path.join(chosen_directory, filename)) as f:
         gpx = gpxpy.parse(f)
-    df = gpx_to_df(filename, gpx)
+    df = gpx_to_df(os.path.join(chosen_directory, filename))
     all_dfs.append(df)
 dir_df = pd.concat(all_dfs)
 
@@ -368,13 +381,11 @@ st.image(img)
 
 
 chosen_file = st.selectbox("File", sorted(paths[chosen_directory]))
+df = gpx_to_df(os.path.join(chosen_directory, chosen_file))
 
-with open(os.path.join(chosen_directory, chosen_file)) as f:
-    gpx = gpxpy.parse(f)
-df = gpx_to_df(chosen_file, gpx)
-
-summary = gpx_to_summary(gpx)
+summary = summarize_single_df(df)
 st.json(summary)
+st.dataframe(pd.DataFrame([summary]))
 
 chart = (
     alt.Chart(df)
