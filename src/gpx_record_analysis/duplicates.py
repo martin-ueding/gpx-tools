@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-# Copyright © 2021 Martin Ueding <mu@martin-ueding.de>
-
 import argparse
 import json
 import os
@@ -20,7 +15,7 @@ def find_start(gpx):
             points = segment.points
             if len(points) > 0:
                 return points[0]
-    raise RuntimeError('Could not find a start.')
+    raise RuntimeError("Could not find a start.")
 
 
 def find_end(gpx):
@@ -29,24 +24,24 @@ def find_end(gpx):
             points = segment.points
             if len(points) > 0:
                 return points[-1]
-    raise RuntimeError('Could not find an end.')
+    raise RuntimeError("Could not find an end.")
 
 
 def main():
     options = _parse_args()
 
-    cache_file = 'duplicate-cache.json'
+    cache_file = "duplicate-cache.json"
     if os.path.isfile(cache_file):
         with open(cache_file) as f:
             cache = json.load(f)
     else:
         cache = {}
 
-    for dirpath, dirnames, filenames in os.walk('.'):
+    for dirpath, dirnames, filenames in os.walk("."):
         dirnames.sort()
         filenames.sort()
         for filename in filenames:
-            if not filename.endswith('.gpx'):
+            if not filename.endswith(".gpx"):
                 continue
             path = os.path.join(dirpath, filename)
             if path in cache:
@@ -62,7 +57,7 @@ def main():
         if not os.path.isfile(path):
             del cache[path]
 
-    with open(cache_file, 'w') as f:
+    with open(cache_file, "w") as f:
         json.dump(cache, f)
 
     items = list(cache.items())
@@ -83,5 +78,5 @@ def _parse_args():
     return options
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-# Copyright © 2021 Martin Ueding <mu@martin-ueding.de>
-
 import argparse
 import os
 import glob
@@ -14,12 +9,12 @@ import gpxpy
 
 
 def merge_track(bucket):
-    '''
+    """
     Merges multiple GPX tracks when the gap between them is not too long.
 
     :param tracks:
     :return:
-    '''
+    """
     assert len(bucket) >= 1
     if len(bucket) == 1:
         return bucket[0]
@@ -32,16 +27,16 @@ def merge_track(bucket):
 def main():
     options = _parse_args()
 
-    merged_dir = os.path.join(options.basedir, 'Merged')
+    merged_dir = os.path.join(options.basedir, "Merged")
     os.makedirs(merged_dir, exist_ok=True)
-    processed_raw_dir = os.path.join(options.basedir, 'Processed Raw')
+    processed_raw_dir = os.path.join(options.basedir, "Processed Raw")
     os.makedirs(processed_raw_dir, exist_ok=True)
 
-    raw_gpx_paths = glob.glob(os.path.join(options.basedir, '*.gpx'))
+    raw_gpx_paths = glob.glob(os.path.join(options.basedir, "*.gpx"))
     raw_gpx_paths.sort()
     raw_gpx = []
     for raw_gpx_path in raw_gpx_paths:
-        print(f'Loading {raw_gpx_path} …')
+        print(f"Loading {raw_gpx_path} …")
         with open(raw_gpx_path) as f:
             raw_gpx.append(gpxpy.parse(f))
 
@@ -55,7 +50,10 @@ def main():
         for i in range(1, len(raw_gpx)):
             first = raw_gpx[i - 1]
             second = raw_gpx[i]
-            gap = second.tracks[0].segments[0].points[0].time - first.tracks[-1].segments[-1].points[-1].time
+            gap = (
+                second.tracks[0].segments[0].points[0].time
+                - first.tracks[-1].segments[-1].points[-1].time
+            )
             print(gap)
             bucket.append(first)
             if gap > max_gap:
@@ -67,9 +65,9 @@ def main():
     pprint.pprint(buckets)
 
     for i, bucket in enumerate(buckets):
-        print(f'Merging bucket {i} of {len(buckets)} …')
+        print(f"Merging bucket {i} of {len(buckets)} …")
         merged = merge_track(bucket)
-        with open(f'{merged_dir}/{merged.tracks[0].name}.gpx', 'w') as f:
+        with open(f"{merged_dir}/{merged.tracks[0].name}.gpx", "w") as f:
             f.write(merged.to_xml())
 
     for raw_gpx_path in raw_gpx_paths:
@@ -77,17 +75,19 @@ def main():
 
 
 def _parse_args():
-    parser = argparse.ArgumentParser(description='Utilities to work with GPX data and create a heatmap from it.')
-    parser.add_argument(
-        '--basedir',
-        default=os.path.expanduser('~/Dokumente/Karten/Tracks'),
-        help='Path to directory structure. Default: %(default)s',
+    parser = argparse.ArgumentParser(
+        description="Utilities to work with GPX data and create a heatmap from it."
     )
-    parser.add_argument('--max_gap_minutes', default=5, type=int)
+    parser.add_argument(
+        "--basedir",
+        default=os.path.expanduser("~/Dokumente/Karten/Tracks"),
+        help="Path to directory structure. Default: %(default)s",
+    )
+    parser.add_argument("--max_gap_minutes", default=5, type=int)
     options = parser.parse_args()
 
     return options
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
