@@ -1,5 +1,6 @@
 import glob
 import os
+import typing
 import urllib.error
 import urllib.request
 import time
@@ -286,10 +287,12 @@ def heatmap_from_gpx(lat_lon_data, num_files=1, args_orange=False, args_sigma=1)
 ##############################################
 
 @st.cache
-def gpx_to_df(path: str) -> pd.DataFrame:
+def gpx_to_df(path: str) -> typing.Optional[pd.DataFrame]:
     with open(path) as f:
         gpx = gpxpy.parse(f)
     points = gpx.tracks[0].segments[0].points
+    if len(points) == 0:
+        return None
 
     time = [point.time for point in points]
     latitude = [point.latitude for point in points]
@@ -330,7 +333,7 @@ def summarize_single_df(df: pd.DataFrame) -> dict:
     start = df["time"].iloc[0]
     end = df["time"].iloc[-1]
     duration = (end - start)
-    avg_speed = 3.6 * length / duration
+    avg_speed = 3600 * length / duration.total_seconds()
 
     result = {
         "length": length,
@@ -373,8 +376,12 @@ for filename in paths[chosen_directory]:
     with open(os.path.join(chosen_directory, filename)) as f:
         gpx = gpxpy.parse(f)
     df = gpx_to_df(os.path.join(chosen_directory, filename))
-    all_dfs.append(df)
+    if df is not None:
+        all_dfs.append(df)
 dir_df = pd.concat(all_dfs)
+
+summaries = dir_df.groupby('filename').apply(lambda x: pd.DataFrame([summarize_single_df(x)]))
+st.dataframe(summaries)
 
 img = heatmap_from_gpx(dir_df[["latitude", "longitude"]].to_numpy(), len(all_dfs))
 st.image(img)
@@ -402,29 +409,51 @@ chart = (
 )
 st.altair_chart(chart)
 
-chart = (
+chart_elevation_vs_time = (
     alt.Chart(df)
-    .mark_line()
+    .mark_area(
+        line={'color': 'darkred'},
+        color=alt.Gradient(
+            gradient='linear',
+            stops=[alt.GradientStop(color='white', offset=0),
+                   alt.GradientStop(color='darkred', offset=1)],
+            x1=1,
+            x2=1,
+            y1=1,
+            y2=0,
+        )
+    )
     .encode(
         x="time",
         y="elevation",
     )
 )
-st.altair_chart(chart)
+st.altair_chart(chart_elevation_vs_time)
 
 
-chart = (
+chart_elevation_vs_distance = (
     alt.Chart(df)
-    .mark_line()
+    .mark_area(
+        line={'color': 'darkred'},
+        color=alt.Gradient(
+            gradient='linear',
+            stops=[alt.GradientStop(color='white', offset=0),
+                   alt.GradientStop(color='darkred', offset=1)],
+            x1=1,
+            x2=1,
+            y1=1,
+            y2=0,
+        )
+    )
     .encode(
         x="distance",
         y="elevation",
     )
 )
-st.altair_chart(chart)
+st.altair_chart(chart_elevation_vs_distance)
 
 
-chart = (
+chart_distance_vs_time = (
     alt.Chart(df)
     .mark_line()
     .encode(
@@ -432,9 +461,9 @@ chart = (
         y="distance",
     )
 )
-st.altair_chart(chart)
+st.altair_chart(chart_distance_vs_time)
 
-chart = (
+chart_speed_vs_time = (
     alt.Chart(df)
     .mark_line()
     .encode(
@@ -442,4 +471,7 @@ chart = (
         y="speed",
     )
 )
+st.altair_chart(chart_speed_vs_time)
+
+chart = alt.layer(chart_elevation_vs_time, chart_speed_vs_time).resolve_scale(y='independent').interactive()
 st.altair_chart(chart)
